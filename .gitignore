@@ -1,0 +1,84 @@
+# ════════════════════════════════════════════════════════════
+# .gitignore — seo-aeo-geo-auditor
+# ════════════════════════════════════════════════════════════
+
+# === SEKRETY ===
+*.env
+.env
+.env.local
+.env.*.local
+api_keys.txt
+*_api_key*
+*.secret
+
+# === RAPORTY (generowane na żywo, nie commitować) ===
+*.json
+!package.json
+!package-lock.json
+
+# Wyjątki — WPISUJ raporty które chcesz commitować ręcznie:
+# !example_report.json
+
+*.md.bak
+_smoke_*.md
+_smoke_*.json
+_tmp_*.json
+last_report.json
+psi_*.md
+psi_*.json
+final.json
+final.md
+final_main.json
+final_main.md
+adv*.json
+val*.json
+val*.md
+kw*.json
+kw*.md
+wynik.json
+before.json
+after.json
+after_*.json
+after_*.md
+schema_validation.*
+
+# === HISTORIA snapshotów (privacy — może zawierać URL-e niepublikowane) ===
+history/
+*.snapshot.json
+
+# === ARTEFAKTY DASHBOARD (per-user paths) ===
+artifacts/
+*.artifact.html
+
+# === PYTHON ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# === IDE / EDYTOR ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === LOGI ===
+*.log
+logs/
+
+# === BACKUPY ===
+*.bak
+*_backup*
+backups/

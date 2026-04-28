@@ -1,0 +1,13 @@
+# seo-aeo-geo-auditor — requirements
+# Wszystko jest na stdlib Pythona 3.10+. Brak zewnętrznych zależności.
+# Plik istnieje dla kompatybilności narzędzi (pip install -r requirements.txt
+# zadziała bezbłędnie i nic nie zainstaluje).
+
+# Wymagana wersja Pythona:
+#   Python >= 3.10  (potrzebujemy `str | None` union syntax)
+
+# Opcjonalne zewnętrzne narzędzia (instalowane osobno):
+#   - Lighthouse CLI (Node.js)    npm install -g lighthouse
+#     Tylko jeśli auditor_advanced.py ma odpalać Lighthouse.
+#   - Klucz Google API            https://console.cloud.google.com
+#     Tylko dla pagespeed.py (PageSpeed Insights API, free 25k/dzień).
