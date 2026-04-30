@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  compile:
+    name: py_compile (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Bytecode-compile every module
+        shell: bash
+        run: |
+          python -m py_compile \
+            auditor.py \
+            auditor_advanced.py \
+            validator.py \
+            fixer.py \
+            monitor.py \
+            pagespeed.py \
+            aeo_probe.py \
+            report_html.py \
+            templates.py \
+            ai_bots.py \
+            keyword_strategy.py \
+            gui.py
+
+      - name: Verify CLI --help on all modules
+        shell: bash
+        run: |
+          python auditor.py --help > /dev/null
+          python auditor_advanced.py --help > /dev/null
+          python validator.py --help > /dev/null
+          python fixer.py --help > /dev/null
+          python monitor.py --help > /dev/null
+          python pagespeed.py --help > /dev/null
+          python aeo_probe.py --help > /dev/null
+          python keyword_strategy.py --help > /dev/null
+          python gui.py --help > /dev/null
+
+      - name: Verify imports + key invariants
+        shell: bash
+        run: |
+          python - <<'PY'
+          import auditor_advanced as aa
+          import keyword_strategy as ks
+          import gui
+
+          assert callable(aa._meta_get), "_meta_get helper missing"
+          assert isinstance(ks.PL_STOPWORDS, frozenset), "PL_STOPWORDS must be frozenset"
+          assert len(ks.PL_STOPWORDS) > 250, f"PL_STOPWORDS too small: {len(ks.PL_STOPWORDS)}"
+          assert callable(gui._cleanup_jobs), "JOBS cleanup hook missing"
+          assert gui.JOB_TTL_SECONDS > 0, "JOB_TTL_SECONDS must be positive"
+          assert gui.JOB_MAX_ENTRIES > 0, "JOB_MAX_ENTRIES must be positive"
+
+          # Attribute-order-agnostic META parsing
+          html_a = '<meta property="article:published_time" content="2025-01-01T00:00:00Z">'
+          html_b = '<meta content="2025-01-01T00:00:00Z" property="article:published_time">'
+          assert aa._meta_get(html_a, "article:published_time") == "2025-01-01T00:00:00Z"
+          assert aa._meta_get(html_b, "article:published_time") == "2025-01-01T00:00:00Z"
+          print("All invariants pass.")
+          PY
+
+  lint:
+    name: ruff lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - run: ruff check . --select E9,F63,F7,F82 --exclude reports
+        # Only fail on actual errors (E9 syntax / F undefined-name).
+        # Style warnings are advisory.

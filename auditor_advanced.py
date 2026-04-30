@@ -17,6 +17,12 @@ Użycie:
     python auditor_advanced.py --folder ./build --json adv_report.json --modules performance,a11y
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -55,14 +61,22 @@ COLOR_HEX_RE = re.compile(r"#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})")
 LANG_HTML_RE = re.compile(r'<html\b[^>]*\blang\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
 INPUT_RE = re.compile(r"<input\b([^>]*)>", re.IGNORECASE)
 LABEL_FOR_RE = re.compile(r'<label\b[^>]*for\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
-META_DATE_PUB_RE = re.compile(
-    r'<meta\b[^>]*property\s*=\s*["\']article:published_time["\'][^>]*content\s*=\s*["\']([^"\']+)["\']',
-    re.IGNORECASE,
-)
-META_DATE_MOD_RE = re.compile(
-    r'<meta\b[^>]*property\s*=\s*["\']article:modified_time["\'][^>]*content\s*=\s*["\']([^"\']+)["\']',
-    re.IGNORECASE,
-)
+# Generic <meta ...> matcher — we then parse attrs to find property + content
+# regardless of attribute order (property before content OR content before property).
+META_TAG_RE = re.compile(r"<meta\b([^>]*)/?>", re.IGNORECASE)
+
+
+def _meta_get(html: str, prop_value: str) -> str | None:
+    """Find <meta property|name="<prop_value>" content="..."> regardless of attribute order."""
+    pv = prop_value.lower()
+    for m in META_TAG_RE.finditer(html):
+        attrs = parse_attrs(m.group(1))
+        key = attrs.get("property") or attrs.get("name")
+        if key and key.lower() == pv:
+            content = attrs.get("content")
+            if content:
+                return content
+    return None
 
 
 def parse_attrs(s: str) -> dict[str, str]:
@@ -490,15 +504,11 @@ def audit_accessibility(pages: list[Page], folder: Path | None) -> dict:
                     bc_lum = _luminance(_hex_to_rgb(bc))
                 except Exception:
                     continue
-                # Sparuj tylko semantycznie KONTRASTUJĄCE: jeden jasny, drugi ciemny.
-                # Jeśli oba mają tę samą "polaryzację" (oba ciemne lub oba jasne)
-                # → to nigdy nie będzie para tekst/tło, pomijamy.
-                light = max(tc_lum, bc_lum)
-                dark = min(tc_lum, bc_lum)
-                if light < 0.5 or dark > 0.3:
-                    continue  # nie kontrastująca para
+                # Sprawdź wszystkie pary z różnymi kolorami — WCAG sprawdza realnie
+                # użyte pary tekst/tło. Bug fix: poprzedni warunek odrzucał ciemne na
+                # ciemnym (#000 na #888 = 4.5:1 = realny problem WCAG).
                 r = contrast_ratio(tc, bc)
-                if r < worst_ratio:
+                if r > 0 and r < worst_ratio:
                     worst_ratio = r
                     worst_pair = (tc, bc)
         if worst_pair:
@@ -705,15 +715,15 @@ def audit_content_quality(pages: list[Page], folder: Path | None) -> dict:
         if first_numbers >= 2 and first_proper >= 1:
             tldr_present += 1
 
-        # Freshness — datePublished vs dateModified
-        m_pub = META_DATE_PUB_RE.search(p.html)
-        m_mod = META_DATE_MOD_RE.search(p.html)
-        if m_pub:
+        # Freshness — datePublished vs dateModified (attribute order agnostic)
+        pub_val = _meta_get(p.html, "article:published_time")
+        mod_val = _meta_get(p.html, "article:modified_time")
+        if pub_val:
             try:
-                pub_dt = datetime.fromisoformat(m_pub.group(1).replace("Z", "+00:00"))
+                pub_dt = datetime.fromisoformat(pub_val.replace("Z", "+00:00"))
                 check_dt = pub_dt
-                if m_mod:
-                    mod_dt = datetime.fromisoformat(m_mod.group(1).replace("Z", "+00:00"))
+                if mod_val:
+                    mod_dt = datetime.fromisoformat(mod_val.replace("Z", "+00:00"))
                     check_dt = mod_dt
                 age_days = (datetime.now(timezone.utc) - check_dt).days if check_dt.tzinfo else (datetime.now() - check_dt).days
                 if age_days > 365:
@@ -725,7 +735,9 @@ def audit_content_quality(pages: list[Page], folder: Path | None) -> dict:
     if flesch_scores:
         avg_fog = sum(flesch_scores) / len(flesch_scores)
         findings.append(f"📖 FOG-PL (Pisarek): średnio {avg_fog:.1f} (im niższy, tym łatwiejszy)")
-        if avg_fog < 9:
+        if avg_fog < 5:
+            findings.append("   ✅ Bardzo łatwy (klasy 4-6 SP)")
+        elif avg_fog < 9:
             findings.append("   ✅ Łatwy tekst (klasy 7-8 SP)")
         elif avg_fog < 13:
             findings.append("   ✅ Standardowy poziom (LO) — dobry dla AEO i ogólnego odbiorcy")

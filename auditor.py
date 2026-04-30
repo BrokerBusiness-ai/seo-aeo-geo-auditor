@@ -28,6 +28,12 @@ Przyklady:
     python auditor.py --folder C:/PYTHON/ARCHAIOS-Demand-Engine/.../output/zdrowie-fit
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -250,12 +256,21 @@ def audit_robots(src: Source) -> list[str]:
     content = fr.content
     for bot in REQUIRED_AI_BOTS:
         if bot.lower() in content.lower():
+            # Bug fix: poprzedni regex z DOTALL mógł zaczepiać Disallow z innego bloku.
+            # Teraz match ograniczony do BLOKU bota (do następnej pustej linii lub
+            # następnego User-agent — nie przeskakuje cudzych reguł).
             pat = re.compile(
-                rf"User-agent:\s*{re.escape(bot)}.*?(?:Allow|Disallow)",
-                re.IGNORECASE | re.DOTALL,
+                rf"User-agent:\s*{re.escape(bot)}\b"
+                r"(?P<block>(?:[^\n]*\n(?!\s*User-agent:|\s*$))*[^\n]*)",
+                re.IGNORECASE,
             )
             m = pat.search(content)
-            if m and "disallow: /" not in m.group().lower().replace("disallow: /data", ""):
+            block = m.group("block").lower() if m else ""
+            # Wyrzuć z analizy popularne wyjątki "Disallow: /data" itp. żeby nie
+            # mylić z full-disallow root.
+            block_clean = re.sub(r"disallow:\s*/(data|admin|api|private)\b[^\n]*", "", block)
+            has_full_disallow = re.search(r"disallow:\s*/\s*$", block_clean, re.MULTILINE)
+            if m and not has_full_disallow:
                 out.append(f"   ✅ {bot} — dozwolony")
             else:
                 out.append(f"   ⚠️  {bot} — wymieniony, sprawdz reguly")

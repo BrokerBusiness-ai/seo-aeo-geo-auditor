@@ -18,6 +18,12 @@ Użycie:
     python monitor.py --schedule         # zarejestruj w Windows Task Scheduler (pokaże komendę)
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -100,6 +106,7 @@ def collect_snapshot(target: str, mode: str, site_slug: str) -> dict:
 
     # Składowy score
     scores = []
+    v_score = None  # init żeby uniknąć UnboundLocalError gdy validator None
     if snapshot["main"] and "score" in snapshot["main"]:
         scores.append(snapshot["main"]["score"])
     if snapshot["advanced"] and "avg_score" in snapshot["advanced"]:
@@ -114,7 +121,7 @@ def collect_snapshot(target: str, mode: str, site_slug: str) -> dict:
     snapshot["score_breakdown"] = {
         "main": snapshot["main"].get("score") if snapshot["main"] else None,
         "advanced": snapshot["advanced"].get("avg_score") if snapshot["advanced"] else None,
-        "validator": v_score if snapshot["validator"] else None,
+        "validator": v_score,
     }
     return snapshot
 
@@ -123,8 +130,14 @@ def collect_snapshot(target: str, mode: str, site_slug: str) -> dict:
 
 def save_snapshot(snapshot: dict) -> Path:
     HISTORY_DIR.mkdir(exist_ok=True)
-    ts = datetime.fromisoformat(snapshot["timestamp"].replace("Z", "+00:00"))
-    fname = f"{ts.strftime('%Y-%m-%d-%H%M')}_{snapshot['site_slug']}.json"
+    try:
+        ts = datetime.fromisoformat(snapshot["timestamp"].replace("Z", "+00:00"))
+    except (ValueError, KeyError):
+        ts = datetime.now(timezone.utc)
+    # Sanityzuj slug — Windows nie pozwala na : / \ w nazwach plików
+    raw_slug = snapshot.get("site_slug", "site")
+    safe_slug = re.sub(r"[^A-Za-z0-9_-]", "_", str(raw_slug))[:60] or "site"
+    fname = f"{ts.strftime('%Y-%m-%d-%H%M')}_{safe_slug}.json"
     path = HISTORY_DIR / fname
     path.write_text(json.dumps(snapshot, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"💾 Zapisano: {path.relative_to(HERE)}")

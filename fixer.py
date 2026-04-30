@@ -22,6 +22,12 @@ Użycie:
     python fixer.py --folder ./build --apply all --site-name "Zdrowie.fit" --base-url https://zdrowie.fit
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -224,7 +230,11 @@ def fix_sitemap(target: Path, base_url: str) -> list[str]:
         rel = hf.relative_to(target).as_posix()
         if rel in ("404.html", "500.html"):
             continue
-        url = f"{base}/{rel}".replace("/index.html", "/")
+        # Bug fix: replace global zniszczyłby URL '/index.html-archive/foo.html'
+        path_part = f"/{rel}"
+        if path_part.endswith("/index.html"):
+            path_part = path_part[: -len("index.html")]
+        url = f"{base}{path_part}"
         try:
             mtime = datetime.fromtimestamp(hf.stat().st_mtime, tz=timezone.utc).strftime("%Y-%m-%d")
         except Exception:
@@ -273,8 +283,10 @@ def fix_security(target: Path) -> list[str]:
 
 def fix_pwa(target: Path, site_name: str, description: str) -> list[str]:
     log = ["\n📱 FIX: PWA"]
-    short = site_name.split()[0][:12] if site_name else "App"
-    slug = re.sub(r"[^a-z0-9]+", "-", site_name.lower()).strip("-") or "site"
+    # Bug fix: site_name="  " (whitespace) przechodziło `if site_name` ale split()=[]
+    parts = (site_name or "").split()
+    short = parts[0][:12] if parts else "App"
+    slug = re.sub(r"[^a-z0-9]+", "-", (site_name or "").lower()).strip("-") or "site"
 
     manifest = json.loads(json.dumps(MANIFEST_TEMPLATE))  # deepcopy
     manifest["name"] = site_name
@@ -321,8 +333,14 @@ def fix_fonts(target: Path, timeout: int = 15) -> list[str]:
             log.append(f"   ⚠️  Nie udało się pobrać CSS: {gf_url} — {e}")
             continue
 
-        # wyciągnij wszystkie URL .woff2 z CSS
-        for woff_url in re.findall(r"url\((https?://[^)]+\.woff2)\)", css):
+        # Strip CSS comments BEFORE URL extraction, so we don't process
+        # fonts referenced in commented-out blocks. Operate on a stripped copy
+        # for parsing/replacement to keep the original (with comments) untouched
+        # outside url(...) contexts.
+        css_no_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+
+        # wyciągnij wszystkie URL .woff2 z CSS (bez komentarzy)
+        for woff_url in re.findall(r"url\(\s*['\"]?(https?://[^)'\"]+\.woff2)['\"]?\s*\)", css_no_comments):
             fname = woff_url.rsplit("/", 1)[-1]
             local_path = fonts_dir / fname
             if not local_path.exists():
@@ -331,10 +349,20 @@ def fix_fonts(target: Path, timeout: int = 15) -> list[str]:
                     with urllib.request.urlopen(req2, timeout=timeout) as r:
                         local_path.write_bytes(r.read())
                     fonts_downloaded += 1
+                except OSError as e:
+                    log.append(f"   ⚠️  Zapis {fname}: {e}")
+                    continue
                 except Exception as e:
                     log.append(f"   ⚠️  Pobieranie {fname}: {e}")
                     continue
-            css = css.replace(woff_url, f"/fonts/{fname}")
+            # Replace ONLY inside url(...) context, leaving comments / unrelated
+            # text alone. Using regex with the URL escaped guarantees we don't
+            # touch occurrences outside url(...).
+            css = re.sub(
+                r"url\(\s*(['\"]?)" + re.escape(woff_url) + r"\1\s*\)",
+                f"url('/fonts/{fname}')",
+                css,
+            )
 
         css_combined.append(css)
 

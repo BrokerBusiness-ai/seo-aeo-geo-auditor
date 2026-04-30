@@ -12,6 +12,12 @@ Użycie:
     python report_html.py --history --site zdrowie-fit --out trend.html
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -217,7 +223,12 @@ def build_modules_section(inputs: list[dict]) -> str:
             current_name = "Moduł"
             current_findings: list[str] = []
             for line in inp.get("lines", []):
-                if line.startswith("\n") and any(x in line for x in ("PLIKI", "ROBOTS", "SCHEMA", "SITEMAP", "BEZPIECZ", "PWA", "FONTY", "JAKOŚĆ")):
+                # NOTE: auditor.py emits ASCII-only headers (JAKOSC, BEZPIECZ),
+                # ale w razie kompatybilności wstecznej obsługujemy też wersje z diakrytykami.
+                _module_keys = ("PLIKI", "ROBOTS", "SCHEMA", "SITEMAP",
+                                "BEZPIECZ", "PWA", "FONTY",
+                                "JAKOSC", "JAKOŚĆ")
+                if line.startswith("\n") and any(x in line for x in _module_keys):
                     if current_findings:
                         ok = sum(1 for f in current_findings if "✅" in f)
                         fail = sum(1 for f in current_findings if "❌" in f)

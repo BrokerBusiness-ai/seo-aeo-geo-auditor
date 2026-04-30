@@ -1,227 +1,290 @@
 # seo-aeo-geo-auditor
 
-Narzędzie do audytu i auto-fix SEO / AEO / GEO dla stron statycznych i live URL.
-Czysty Python stdlib, brak zewnętrznych zależności.
+> Open-source toolkit that audits a website for **SEO + AEO + GEO** readiness — and tests real LLM citation rate against your pages. Pure Python 3.10 stdlib, zero runtime dependencies.
 
-Powstało jako wewnętrzne narzędzie do audytu sieci domen ARCHAIOS Demand Engine
-(zdrowie.fit, jaksobieradzic.pl, psychodzisiaj.pl, psychosen.pl,
-sprawdzwypalenie.pl, wppage.pl i inne).
-
----
-
-## Co audytuje
-
-**SEO (klasyczne)** — robots.txt, sitemap.xml, JSON-LD schema, canonical, meta,
-nagłówki bezpieczeństwa (HSTS, CSP, X-Frame), kompresja, cache, fonty self-hosted.
-
-**AEO (Answer Engine Optimization)** — pliki `llms.txt` / `llms-full.txt` /
-`ai.txt` (Spawning), schematy `FAQPage`, `HowTo`, `SpeakableSpecification`,
-`ClaimReview`, `Person.sameAs`, fact density, citation density, H2-pytania.
-
-**GEO (Generative Engine Optimization)** — dostęp dla 26 botów AI 2026
-(GPTBot, ChatGPT-User, OAI-SearchBot, ClaudeBot, Claude-Web, claude-searchbot,
-PerplexityBot, Perplexity-User, Google-Extended, GoogleOther,
-Applebot-Extended, Amazonbot, Bytespider, CCBot, Meta-ExternalAgent,
-Meta-ExternalFetcher, cohere-ai, Diffbot, MistralAI-User, DuckAssistBot,
-YouBot, Timpibot, omgili, omgilibot, ImagesiftBot).
-
-**Performance / CWV** (przez Google PSI) — LCP, INP, CLS, TBT, TTI,
-Opportunities z impactem ms/KB.
-
-**Accessibility** — WCAG 2.2 AA: alt text, hierarchia nagłówków,
-landmarks, kontrast (parser CSS variables + heurystyka kontrastującej pary),
-form labels, skip links, lang.
-
-**Content quality** — FOG-PL (formuła Pisarka 1969 dla polskiego),
-średnia długość zdania, fact density, citation density, TL;DR detection,
-H2-pytania ratio, freshness signal.
-
-**Keyword strategy** — TF-IDF per artykuł, cannibalization detection,
-topical clusters (Jaccard + min-shared-keywords), content gap suggestions,
-merit score 0-100 per artykuł.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Stdlib only](https://img.shields.io/badge/dependencies-stdlib%20only-brightgreen.svg)]()
+[![Status](https://img.shields.io/badge/status-active-success.svg)]()
 
 ---
 
-## Moduły
+## What is this?
 
-| Plik | Co robi | Wymaga |
+A unified auditor for the three optimization layers that matter in 2026:
+
+| Layer | What it covers | Example checks |
 |---|---|---|
-| `auditor.py` | Główny audyt 8 modułów | Python 3.10+ |
-| `auditor_advanced.py` | Performance + A11y + Content quality | Python 3.10+ |
-| `validator.py` | Walidacja schema.org dla 30+ typów | Python 3.10+ |
-| `keyword_strategy.py` | TF-IDF, cannibalization, clusters, merit | Python 3.10+ |
-| `fixer.py` | Auto-fix 7 modułów (do `_fixed/` kopii) | Python 3.10+ |
-| `pagespeed.py` | Google PageSpeed Insights API | klucz API (free) |
-| `monitor.py` | History + diff + alert email | smtplib (stdlib) |
-| `report_html.py` | Wizualny HTML/PDF raport (Chart.js) | Python 3.10+ |
-| `ai_bots.py` | Lista 26 botów AI 2026 | — |
-| `templates.py` | Szablony plików (.htaccess OWASP A+, manifest, sw.js, ai.txt) | — |
+| **SEO** | Classic search engines | Schema.org JSON-LD, sitemap, robots, security headers |
+| **AEO** | Answer Engine Optimization (Google AI Overviews, Bing Copilot) | FAQ structure, citation density, fact density, freshness |
+| **GEO** | Generative Engine Optimization (ChatGPT, Claude, Perplexity) | 26 AI-bot crawler access, llms.txt, llms-full.txt, Speakable |
+
+Plus an **AEO Active Probe** that fires real queries at 5 LLM providers (OpenAI, Anthropic, DeepSeek, xAI, Gemini) and measures whether your domain is actually being cited.
 
 ---
 
 ## Quick start
 
-### Audyt strony lokalnej (folder z plikami HTML)
+```bash
+# Clone
+git clone https://github.com/<your-handle>/seo-aeo-geo-auditor.git
+cd seo-aeo-geo-auditor
 
-```powershell
-python auditor.py --folder C:\path\to\site --json wynik.json
+# Audit any URL — full pipeline, HTML report
+python gui.py --open
+# → opens http://127.0.0.1:8765 — paste URL, click button, get report
 ```
 
-### Audyt strony live (URL publiczny)
+CLI alternative:
 
-```powershell
-python auditor.py --url https://example.com --pages 15 --json wynik.json
-```
-
-### Pełny audyt z 4 modułami
-
-```powershell
-python auditor.py             --folder ./build --json main.json
-python auditor_advanced.py    --folder ./build --json adv.json
-python validator.py           --folder ./build --json val.json --md val.md
-python keyword_strategy.py    --folder ./build --json kw.json --md kw.md --suggest 20
-```
-
-### PageSpeed Insights (real metrics z Google)
-
-```powershell
-# Klucz API (free): https://console.cloud.google.com → APIs → PageSpeed Insights API
-$env:PSI_API_KEY = "AIzaSy..."
-
-python pagespeed.py --url https://example.com --md psi.md --json psi.json
-```
-
-### Auto-fix (do `{folder}_fixed/`)
-
-```powershell
-python fixer.py --folder ./build --apply all --base-url https://example.com --site-name "MyPage"
-```
-
-Moduły fixów: `ai_files`, `robots`, `sitemap`, `security`, `pwa`, `fonts`, `schema`, `all`.
-
-### Continuous monitoring + diff
-
-```powershell
-python monitor.py --folder ./build --site mypage
-python monitor.py --history --site mypage   # historia + ostatni diff
-python monitor.py --schedule --folder ./build --site mypage   # komenda do Task Scheduler
-```
-
-### Wizualny raport HTML
-
-```powershell
-python report_html.py --inputs main.json,adv.json,val.json --site example --out raport.html
+```bash
+python auditor.py https://example.com --md report.md --json report.json
+python auditor_advanced.py https://example.com --json adv.json
+python validator.py https://example.com --md val.md
+python keyword_strategy.py https://example.com --md kw.md
+python aeo_probe.py --domain example.com --topic "your topic" --md probe.md
 ```
 
 ---
 
-## Pełny przepływ — przykład end-to-end
+## Features
+
+### 12 audit modules
+
+| # | Module | What it checks |
+|---|---|---|
+| 1 | `auditor.py` | 8 SEO/AEO/GEO core groups — files, robots, schema, sitemap, security, PWA, fonts, content quality |
+| 2 | `auditor_advanced.py` | Performance (HTML weight, image formats), A11y (lang, landmarks, headings), Content (FOG-PL readability, fact density, citation density, freshness) |
+| 3 | `validator.py` | Schema.org JSON-LD validator for 30+ types with cross-reference checks |
+| 4 | `pagespeed.py` | Google PageSpeed Insights API integration (real Lighthouse scores) |
+| 5 | `keyword_strategy.py` | TF-IDF keyword extraction + topical clustering (Jaccard) |
+| 6 | `fixer.py` | Auto-fix engine: missing schema, security headers, self-host fonts, llms.txt generation |
+| 7 | `aeo_probe.py` | **The differentiator.** Real LLM citation tracking across 5 providers |
+| 8 | `monitor.py` | History snapshots + diff between runs |
+| 9 | `gui.py` | Local web GUI — one URL, one button, full report |
+| 10 | `report_html.py` | Self-contained HTML report (Chart.js inline, print-to-PDF ready) |
+| 11 | `templates.py` | OWASP A+ `.htaccess`, `manifest.json`, `sw.js`, `ai.txt` generators |
+| 12 | `ai_bots.py` | Reference list of 26 AI crawlers (April 2026) |
+
+### Why "the AEO probe is the differentiator"
+
+Most OSS SEO tools check infrastructure. The probe checks **outcome**: it asks 10 real questions about your topic to 5 different LLM providers and measures:
+
+- Whether your domain is cited (binary)
+- Position in the response (early = better)
+- Whether the URL is rendered as a clickable link
+- Sentiment of the mention (positive / neutral / negative)
+- Aggregate citation rate per provider
+
+Output: `probe.md` table with citation rate per LLM, plus a JSON dump for downstream automation.
+
+---
+
+## Installation
+
+### Requirements
+
+- Python 3.10+ (uses `str | None` PEP 604 syntax)
+- Optional: Lighthouse CLI (`npm install -g lighthouse`) for offline performance scoring
+- Optional: API keys (see `.env.example`)
+
+### Setup
+
+```bash
+git clone https://github.com/<your-handle>/seo-aeo-geo-auditor.git
+cd seo-aeo-geo-auditor
+
+# Copy env template and fill in keys you have
+cp .env.example .env
+# edit .env — at minimum PSI_API_KEY for PageSpeed; add LLM keys if using probe
+
+# (optional) dev tools
+pip install -r requirements-dev.txt
+```
+
+### Loading API keys (Windows PowerShell)
 
 ```powershell
-# 1. Audyt PRZED
-python auditor.py --folder ./output/zdrowie-fit --json before.json
-
-# 2. Auto-fix
-python fixer.py --folder ./output/zdrowie-fit --apply all `
-                --base-url https://zdrowie.fit --site-name "Zdrowie.fit"
-
-# 3. Audyt PO (kopii _fixed/)
-python auditor.py --folder ./output/zdrowie-fit_fixed --json after.json
-
-# 4. Walidacja schema.org
-python validator.py --folder ./output/zdrowie-fit_fixed --md val.md --json val.json
-
-# 5. PageSpeed Insights real
-python pagespeed.py --url https://zdrowie.fit --md psi.md --json psi.json
-
-# 6. Wizualny raport
-python report_html.py --inputs after.json,val.json --site zdrowie-fit --out raport.html
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^([A-Z_]+)=(.+)$') {
+        [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2].Trim(), "Process")
+    }
+}
 ```
 
-Albo jednym `examples\full_flow.bat`:
+### Loading API keys (Linux/macOS)
+
+```bash
+set -a; source .env; set +a
+```
+
+---
+
+## Usage examples
+
+### Single-URL audit (GUI, recommended)
+
+```bash
+python gui.py --port 8765 --open
+```
+
+Opens a single-field web form. Paste URL, click button, watch progress, get HTML + JSON reports in `reports/`.
+
+### Full CLI pipeline
+
+```bash
+URL="https://example.com"
+
+python auditor.py "$URL" --pages 15 --md main.md --json main.json
+python auditor_advanced.py "$URL" --pages 10 --json adv.json
+python pagespeed.py "$URL" --strategy mobile --json psi.json
+python validator.py "$URL" --md val.md --json val.json
+python keyword_strategy.py "$URL" --md kw.md --json kw.json
+```
+
+### AEO probe (real LLM citation test)
+
+```bash
+python aeo_probe.py \
+    --domain example.com \
+    --brand "Example Inc." \
+    --topic "your industry topic" \
+    --max-queries 10 \
+    --md probe.md \
+    --json probe.json
+```
+
+Cost: ~$0.05–0.15 per 10-query run across 5 providers (mostly OpenAI mini + Anthropic Haiku tier).
+
+### Auto-fix a local site
+
+```bash
+python fixer.py /path/to/built/site --json fix-log.json
+```
+
+Adds missing security headers, generates `llms.txt`, downloads Google Fonts to local `/fonts/`, ensures `manifest.json` + `sw.js` etc.
+
+### Monitor over time
+
+```bash
+python monitor.py https://example.com --compare-last
+```
+
+Compares current run with the previous snapshot, surfaces regressions.
+
+---
+
+## Sample output
+
+After running the GUI on a well-optimized site:
+
+```
+═══════════════════════════════════════════════════════════
+  SEO / AEO / GEO AUDITOR
+═══════════════════════════════════════════════════════════
+  PERFORMANCE   96/100
+  A11Y          86/100
+  CONTENT       62/100
+  MAIN SCORE    98%
+  VALIDATOR     0 errors / 0 warnings
+═══════════════════════════════════════════════════════════
+```
+
+The HTML report (auto-generated) groups findings by module with pass/fail/warn statuses, score gauges, and remediation hints.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                            gui.py                                │
+│            (HTTP server — one URL → one button → report)         │
+└──────────────┬──────────────────────────────┬───────────────────┘
+               │                              │
+   ┌───────────▼─────────────┐    ┌───────────▼─────────────┐
+   │      audit pipeline     │    │      report builder     │
+   │                         │    │                         │
+   │  pagespeed.py           │    │  report_html.py         │
+   │  auditor.py             │    │  (Chart.js, print-PDF)  │
+   │  auditor_advanced.py    │    └─────────────────────────┘
+   │  validator.py           │
+   └─────────────────────────┘
+
+   ┌─────────────────────────────────────────────────────────────┐
+   │                  Standalone tools (CLI)                      │
+   │  aeo_probe.py | keyword_strategy.py | fixer.py | monitor.py  │
+   └─────────────────────────────────────────────────────────────┘
+
+   ┌─────────────────────────────────────────────────────────────┐
+   │                          Shared                              │
+   │             ai_bots.py (26 bots) | templates.py              │
+   └─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## What's tracked vs. what's not
+
+**Tracked by this tool:**
+
+- Technical readiness for SEO / AEO / GEO
+- Schema.org correctness and coverage
+- Content structural quality (FOG-PL, FAQ format, citation density)
+- Real LLM citation rate (probe)
+- Performance (via Google PSI)
+- Accessibility basics
+
+**Out of scope (use other tools):**
+
+- Google rankings → Search Console / Ahrefs
+- Backlink profile → Ahrefs / Majestic
+- Conversion analytics → GA4 / Plausible
+- Page-level UX → manual / Hotjar
+
+The probe is the closest thing to a "rank tracker" for the LLM era — it measures *outcome* (citations), not just *infrastructure*.
+
+---
+
+## Documentation
+
+- [`CHANGELOG.md`](CHANGELOG.md) — version history
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to contribute
+- [`SECURITY.md`](SECURITY.md) — vulnerability reporting
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — community standards
+- [`docs/`](docs/) — module-by-module reference
+
+---
+
+## Polski / Polish
+
+Open-source narzędzie do audytu i naprawy stron WWW pod **SEO** (klasyczne wyszukiwarki), **AEO** (Answer Engine Optimization — Google AI Overviews, Bing Copilot) oraz **GEO** (Generative Engine Optimization — ChatGPT, Claude, Perplexity). Powstało jako wewnętrzne narzędzie ARCHAIOS Demand Engine, otwarte do publicznego użytku.
+
+Najszybszy start:
 
 ```powershell
-.\examples\full_flow.bat "C:\path\output\zdrowie-fit" "Zdrowie.fit" "https://zdrowie.fit"
+git clone https://github.com/<twoj-handle>/seo-aeo-geo-auditor.git
+cd seo-aeo-geo-auditor
+copy .env.example .env
+# edytuj .env — dodaj klucze (przynajmniej PSI_API_KEY)
+python gui.py --open
 ```
+
+Otworzy się `http://127.0.0.1:8765`. Wpisujesz URL → klikasz przycisk → masz raport HTML w `reports/`.
+
+Pełna lista modułów i komend wyżej (sekcja angielska).
 
 ---
 
-## Architektura wyniku — `auditor.py`
+## License
 
-8 modułów audytu, każdy zwraca listę linii z `✅` / `❌` / `⚠️`.
-Score = `done / (done + fail) * 100`.
+MIT — see [LICENSE](LICENSE).
 
-```
-1. PLIKI AI         — llms.txt, llms-full.txt, ai.txt
-2. ROBOTS.TXT       — 26 AI crawlerów + sitemap + llms ref
-3. SCHEMA JSON-LD   — wymagane: WebSite, Organization, Article,
-                      BreadcrumbList, Person
-                      opcjonalne: FAQPage, HowTo, Review,
-                      ClaimReview, SpeakableSpecification
-4. SITEMAP          — URL count, image namespace, lastmod
-5. SECURITY         — HSTS, CSP, X-Frame, COOP, CORP, Permissions,
-                      Referrer, gzip, cache, HTTPS redirect
-6. PWA              — manifest.json + sw.js
-7. FONTY            — self-hosted .woff2, brak Google Fonts
-8. JAKOŚĆ TREŚCI    — H2-pytania, bibliografia, autor, OG, nosnippet
-```
+## Author
 
----
+Marek Porycki — psychologist, writer, builder.
+GitHub: [@brokerbusinesseu](https://github.com/brokerbusinesseu)
 
-## Wymagania
+## Contributing
 
-- **Python 3.10+** (używamy `str | None` syntax)
-- **Klucz Google API** (opcjonalny, tylko do `pagespeed.py`):
-  https://console.cloud.google.com → APIs → PageSpeed Insights API
-- **Lighthouse CLI** (opcjonalny, dla `auditor_advanced.py` performance):
-  `npm install -g lighthouse`
-
-Brak innych zależności. Jeden plik = jedna funkcja, czysty stdlib.
-
----
-
-## Struktura repo
-
-```
-seo-aeo-geo-auditor/
-├── auditor.py              ← główny audyt 8 modułów
-├── auditor_advanced.py     ← Performance + A11y + Content
-├── validator.py            ← walidacja schema.org
-├── keyword_strategy.py     ← TF-IDF + cannibalization + clusters
-├── fixer.py                ← auto-fix 7 modułów
-├── pagespeed.py            ← Google PSI API
-├── monitor.py              ← history + diff + alerts
-├── report_html.py          ← wizualny HTML/PDF
-├── ai_bots.py              ← lista 26 botów AI
-├── templates.py            ← .htaccess OWASP A+, manifest, sw.js
-├── examples/
-│   ├── audit_url.bat
-│   ├── audit_local.bat
-│   └── full_flow.bat
-├── .gitignore
-├── README.md
-├── CHANGELOG.md
-└── requirements.txt
-```
-
----
-
-## Licencja
-
-Wewnętrzne narzędzie ARCHAIOS. Reuse OK.
-
----
-
-## Status
-
-Zweryfikowane na produkcji:
-- `auditor.py`, `auditor_advanced.py`, `validator.py`, `keyword_strategy.py`,
-  `pagespeed.py`, `fixer.py --apply robots` — działają end-to-end
-- Realne wyniki na zdrowie.fit: auditor 100%, validator 0 errors / 9 warnings,
-  PSI Performance 98 / Accessibility 96 / BP 100 / SEO 100, LCP 1.5s, CLS 0
-
-Niezweryfikowane (do testów):
-- `monitor.py` — history + diff + email alerts
-- `report_html.py` — wizualny raport
-- `fixer.py` poza `--apply robots` — pozostałe moduły fixów
-- Multi-domain batch (poza zdrowie.fit nie testowane)
+Pull requests welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) first. For security issues, see [SECURITY.md](SECURITY.md).

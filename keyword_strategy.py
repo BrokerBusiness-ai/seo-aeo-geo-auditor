@@ -18,6 +18,12 @@ Użycie:
     python keyword_strategy.py --folder ./output --suggest 10  # top 10 sugestii nowych artykułów
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -30,42 +36,50 @@ from pathlib import Path
 
 # ─── POLSKIE STOP WORDS ───────────────────────────────────────────────────────
 
-PL_STOPWORDS = {
-    "a", "aby", "ach", "acz", "aczkolwiek", "aj", "albo", "ale", "ależ", "ani", "aż",
-    "bardziej", "bardzo", "bez", "bo", "bowiem", "by", "byli", "bynajmniej", "był",
-    "była", "było", "były", "być", "będzie", "będą", "cali", "cała", "całą", "ci", "cię",
-    "ciebie", "co", "cokolwiek", "coraz", "coś", "czasami", "czasem", "czemu", "czy",
-    "czyli", "daleko", "dla", "dlaczego", "dlatego", "do", "dobrze", "dokąd", "dość",
-    "dużo", "dwa", "dwaj", "dwie", "dwoje", "dziś", "dzisiaj", "gdy", "gdyby", "gdyż",
-    "gdzie", "gdziekolwiek", "gdzieś", "go", "i", "ich", "ile", "im", "inna", "inne",
-    "inny", "innych", "iż", "ja", "ją", "jak", "jakaś", "jakby", "jaki", "jakichś",
-    "jakie", "jakiś", "jakiż", "jakkolwiek", "jako", "jakoś", "je", "jeden", "jedna",
-    "jednak", "jednakże", "jedno", "jego", "jej", "jemu", "jest", "jestem", "jeszcze",
-    "jeśli", "jeżeli", "już", "ją", "każdy", "kiedy", "kierunku", "kilka", "kimś",
-    "kto", "ktokolwiek", "ktoś", "która", "które", "którego", "której", "który",
-    "których", "którym", "którzy", "ku", "lat", "lecz", "lub", "ma", "mają", "mało",
-    "mam", "mi", "miały", "mimo", "mnie", "mną", "mogą", "moi", "moim", "moja", "moje",
-    "może", "możliwe", "można", "mój", "mu", "musi", "my", "na", "nad", "nam", "nami",
-    "nas", "nasi", "nasz", "nasza", "nasze", "naszego", "naszej", "natomiast",
-    "natychmiast", "nawet", "nią", "nic", "nich", "nie", "niech", "niego", "niej",
-    "niemu", "nigdy", "nim", "nimi", "niż", "no", "nas", "nową", "nowe", "nowy", "o",
-    "o.", "obok", "od", "około", "on", "ona", "one", "oni", "ono", "oraz", "oto",
-    "owszem", "pan", "pana", "pani", "po", "pod", "podczas", "pomimo", "ponad",
-    "ponieważ", "powinien", "powinna", "powinni", "powinno", "poza", "prawie",
-    "przecież", "przed", "przede", "przedtem", "przez", "przy", "raz", "razie", "roku",
-    "również", "sam", "sama", "są", "się", "skąd", "sobie", "sobą", "sposób", "swoje",
-    "ta", "tak", "taka", "taki", "takie", "także", "tam", "te", "tego", "tej", "ten",
-    "teraz", "też", "to", "tobą", "tobie", "toteż", "trzeba", "tu", "tutaj", "twoi",
-    "twoim", "twoja", "twoje", "twym", "twój", "ty", "tych", "tylko", "tym", "tys",
-    "u", "wam", "wami", "was", "wasi", "wasz", "wasza", "wasze", "we", "według",
-    "wiele", "wielu", "więc", "więcej", "wszyscy", "wszystkich", "wszystkie",
-    "wszystkim", "wszystko", "wtedy", "wy", "właśnie", "z", "za", "zapewne", "zawsze",
-    "ze", "zł", "znowu", "znów", "żaden", "żadna", "żadne", "żadnych", "że", "żeby",
-    # angielskie częste w polskich tekstach naukowych
-    "a", "an", "the", "of", "and", "or", "in", "on", "at", "for", "to", "with", "as",
-    "is", "are", "was", "were", "be", "been", "being", "this", "that", "these", "those",
-    "but", "if", "then", "than", "so", "such", "by", "from", "vs",
-}
+# Polskie + angielskie stop words (zbiór — duplikaty automatycznie pomijane).
+# Lista posortowana, bez duplikatów (czyszczenie 2026-04-30).
+_PL_STOPWORDS_RAW = (
+    # Polskie
+    "a aby ach acz aczkolwiek aj albo ale ależ ani aż "
+    "bardziej bardzo bez bo bowiem by byli bynajmniej był "
+    "była było były być będzie będą "
+    "cali cała całą ci cię ciebie co cokolwiek coraz coś "
+    "czasami czasem czemu czy czyli "
+    "daleko dla dlaczego dlatego do dobrze dokąd dość dużo "
+    "dwa dwaj dwie dwoje dziś dzisiaj "
+    "gdy gdyby gdyż gdzie gdziekolwiek gdzieś go "
+    "i ich ile im inna inne inny innych iż "
+    "ja ją jak jakaś jakby jaki jakichś jakie jakiś jakiż jakkolwiek jako jakoś "
+    "je jeden jedna jednak jednakże jedno jego jej jemu jest jestem jeszcze "
+    "jeśli jeżeli już "
+    "każdy kiedy kierunku kilka kimś "
+    "kto ktokolwiek ktoś która które którego której który których którym którzy "
+    "ku lat lecz lub "
+    "ma mają mało mam mi miały mimo mnie mną mogą moi moim moja moje "
+    "może możliwe można mój mu musi my "
+    "na nad nam nami nas nasi nasz nasza nasze naszego naszej "
+    "natomiast natychmiast nawet nią nic nich nie niech niego niej niemu "
+    "nigdy nim nimi niż no nową nowe nowy "
+    "o obok od około on ona one oni ono oraz oto owszem "
+    "pan pana pani po pod podczas pomimo ponad ponieważ "
+    "powinien powinna powinni powinno poza prawie "
+    "przecież przed przede przedtem przez przy "
+    "raz razie roku również "
+    "sam sama są się skąd sobie sobą sposób swoje "
+    "ta tak taka taki takie także tam te tego tej ten teraz też to "
+    "tobą tobie toteż trzeba tu tutaj twoi twoim twoja twoje twym twój "
+    "ty tych tylko tym tys "
+    "u wam wami was wasi wasz wasza wasze we według "
+    "wiele wielu więc więcej wszyscy wszystkich wszystkie wszystkim wszystko "
+    "wtedy wy właśnie "
+    "z za zapewne zawsze ze zł znowu znów "
+    "żaden żadna żadne żadnych że żeby "
+    # Angielskie częste w polskich tekstach naukowych
+    "an the of and or in on at for to with as "
+    "is are was were be been being this that these those "
+    "but if then than so such from vs"
+)
+PL_STOPWORDS = frozenset(_PL_STOPWORDS_RAW.split())
 
 # ─── EKSTRAKCJA HTML ──────────────────────────────────────────────────────────
 

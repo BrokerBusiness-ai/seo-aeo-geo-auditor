@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software in research, please cite it as below."
+title: "seo-aeo-geo-auditor"
+abstract: >-
+  Open-source toolkit auditing websites for SEO, AEO (Answer Engine
+  Optimization) and GEO (Generative Engine Optimization) readiness, with
+  an active probe that measures real LLM citation rate across multiple
+  providers.
+authors:
+  - family-names: Porycki
+    given-names: Marek
+    email: brokerbusinesseu@gmail.com
+repository-code: "https://github.com/brokerbusinesseu/seo-aeo-geo-auditor"
+license: MIT
+version: "0.2.0"
+date-released: "2026-04-30"
+keywords:
+  - SEO
+  - AEO
+  - GEO
+  - LLM
+  - schema.org
+  - audit
+  - generative engine optimization
+  - answer engine optimization

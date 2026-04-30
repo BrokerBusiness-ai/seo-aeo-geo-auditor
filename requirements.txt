@@ -1,13 +1,33 @@
-# seo-aeo-geo-auditor — requirements
-# Wszystko jest na stdlib Pythona 3.10+. Brak zewnętrznych zależności.
-# Plik istnieje dla kompatybilności narzędzi (pip install -r requirements.txt
-# zadziała bezbłędnie i nic nie zainstaluje).
+# seo-aeo-geo-auditor — runtime requirements
+# =============================================================================
+# Core: zero external dependencies. Everything runs on Python 3.10+ stdlib.
+#
+# `pip install -r requirements.txt` will succeed and install nothing.
+# =============================================================================
 
-# Wymagana wersja Pythona:
-#   Python >= 3.10  (potrzebujemy `str | None` union syntax)
+# Required Python version:
+#   Python >= 3.10   (PEP 604 `str | None` union syntax)
 
-# Opcjonalne zewnętrzne narzędzia (instalowane osobno):
-#   - Lighthouse CLI (Node.js)    npm install -g lighthouse
-#     Tylko jeśli auditor_advanced.py ma odpalać Lighthouse.
-#   - Klucz Google API            https://console.cloud.google.com
-#     Tylko dla pagespeed.py (PageSpeed Insights API, free 25k/dzień).
+# -----------------------------------------------------------------------------
+# OPTIONAL — only install if you use the matching feature:
+# -----------------------------------------------------------------------------
+#
+#   Lighthouse CLI (Node.js, optional, used by auditor_advanced.py if present):
+#       npm install -g lighthouse
+#
+#   Google PageSpeed Insights API key (free 25k/day quota):
+#       https://aistudio.google.com/apikey   ->  $env:PSI_API_KEY = "AIza..."
+#
+#   LLM API keys for aeo_probe.py (set whichever providers you have):
+#       OPENAI_API_KEY
+#       ANTHROPIC_API_KEY
+#       DEEPSEEK_API_KEY
+#       XAI_API_KEY
+#       GEMINI_API_KEY
+#       PERPLEXITY_API_KEY
+#
+# -----------------------------------------------------------------------------
+# DEV-ONLY (linting / testing) — install via `pip install -r requirements-dev.txt`:
+# -----------------------------------------------------------------------------
+#       ruff
+#       mypy

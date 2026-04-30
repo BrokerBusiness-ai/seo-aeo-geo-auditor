@@ -14,6 +14,12 @@ Użycie:
   python validator.py --url https://zdrowie.fit/artykuly/cold-exposure.html
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -23,7 +29,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 USER_AGENT = "Mozilla/5.0 (compatible; SchemaValidator/1.0)"
 
@@ -446,7 +452,7 @@ def render_markdown_report(reports: list[PageReport]) -> str:
 
 def render_json_report(reports: list[PageReport]) -> dict:
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pages": len(reports),
             "errors": sum(1 for r in reports for i in r.issues if i.severity == "error"),

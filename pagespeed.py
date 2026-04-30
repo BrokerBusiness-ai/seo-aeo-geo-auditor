@@ -24,6 +24,12 @@ API:
     https://www.googleapis.com/pagespeedonline/v5/runPagespeed
 """
 from __future__ import annotations
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8")
+    _sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import argparse
 import json
@@ -52,8 +58,7 @@ def call_psi(url: str, strategy: str = "mobile", api_key: str | None = None,
     if api_key:
         params["key"] = api_key
 
-    full_url = f"{PSI_ENDPOINT}?{urllib.parse.urlencode(params, doseq=False)}"
-    # PSI uses category multiple times — manually
+    # PSI wymaga MULTIPLE category= params (nie comma-separated)
     cats = "&".join(f"category={c}" for c in ["performance", "accessibility", "best-practices", "seo"])
     base_params = {k: v for k, v in params.items() if k != "category"}
     full_url = f"{PSI_ENDPOINT}?{urllib.parse.urlencode(base_params)}&{cats}"

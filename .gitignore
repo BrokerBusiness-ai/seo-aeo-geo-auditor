@@ -2,34 +2,49 @@
 # .gitignore — seo-aeo-geo-auditor
 # ════════════════════════════════════════════════════════════
 
-# === SEKRETY ===
+# === SECRETS — NEVER COMMIT ===
 *.env
 .env
 .env.local
 .env.*.local
+!.env.example
 api_keys.txt
+Api_AI.txt
 *_api_key*
 *.secret
+secrets/
+tokens/
 
-# === RAPORTY (generowane na żywo, nie commitować) ===
+# === GENERATED REPORTS (live data, per-domain) ===
+reports/
+history/
+*.snapshot.json
+artifacts/
+*.artifact.html
+
+# Allow sample reports under examples/sample-reports/
+!examples/sample-reports/**
+
+# === SCRATCH JSON / MD (root-level test runs) ===
 *.json
 !package.json
 !package-lock.json
-
-# Wyjątki — WPISUJ raporty które chcesz commitować ręcznie:
-# !example_report.json
+!.github/**/*.json
 
 *.md.bak
 _smoke_*.md
 _smoke_*.json
 _tmp_*.json
+_smoke_*.py
 last_report.json
+
+# Common ad-hoc filenames used during development
 psi_*.md
 psi_*.json
 final.json
 final.md
-final_main.json
-final_main.md
+final_*.json
+final_*.md
 adv*.json
 val*.json
 val*.md
@@ -40,15 +55,13 @@ before.json
 after.json
 after_*.json
 after_*.md
+probe.md
+probe.json
 schema_validation.*
 
-# === HISTORIA snapshotów (privacy — może zawierać URL-e niepublikowane) ===
-history/
-*.snapshot.json
-
-# === ARTEFAKTY DASHBOARD (per-user paths) ===
-artifacts/
-*.artifact.html
+# Markdown generated for ad-hoc audits at repo root
+# (everything inside docs/, examples/sample-reports/ stays tracked)
+/_*.md
 
 # === PYTHON ===
 __pycache__/
@@ -61,11 +74,15 @@ dist/
 *.egg-info/
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+.venv/
+venv/
+env/
 
-# === IDE / EDYTOR ===
+# === IDE / EDITORS ===
 .vscode/
 .idea/
 *.swp
@@ -74,11 +91,11 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# === LOGI ===
+# === LOGS ===
 *.log
 logs/
 
-# === BACKUPY ===
+# === BACKUPS ===
 *.bak
 *_backup*
 backups/
