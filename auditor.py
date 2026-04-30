@@ -179,18 +179,34 @@ class URLSource(Source):
         url = urljoin(self.base + "/", path.lstrip("/"))
         if url in self._head_cache:
             return self._head_cache[url]
-        req = urllib.request.Request(
-            url, headers={"User-Agent": USER_AGENT}, method="HEAD"
-        )
+        # IMPORTANT: send Accept-Encoding so the server actually advertises
+        # Content-Encoding: gzip|br|deflate. Without this header the server
+        # serves uncompressed and we'd report "no compression" as a false
+        # negative (urllib otherwise sends NO Accept-Encoding by default,
+        # unlike curl/browsers).
+        common_headers = {
+            "User-Agent": USER_AGENT,
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept": "*/*",
+        }
+        req = urllib.request.Request(url, headers=common_headers, method="HEAD")
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 hdrs = {k.lower(): v for k, v in r.headers.items()}
         except Exception:
-            # fallback: GET
-            fr = self._fetch(url)
-            hdrs = {}
-            if fr.exists:
-                hdrs = {"_status": "fallback-get"}
+            # Some hosts reject HEAD — fall back to a tiny GET (Range: 0-1023)
+            # so we still get response headers including Content-Encoding.
+            try:
+                req_get = urllib.request.Request(
+                    url,
+                    headers={**common_headers, "Range": "bytes=0-1023"},
+                    method="GET",
+                )
+                with urllib.request.urlopen(req_get, timeout=self.timeout) as r:
+                    hdrs = {k.lower(): v for k, v in r.headers.items()}
+                    hdrs["_status"] = "fallback-get"
+            except Exception:
+                hdrs = {}
         self._head_cache[url] = hdrs
         return hdrs
 
