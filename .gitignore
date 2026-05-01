@@ -95,6 +95,10 @@ Thumbs.db
 *.log
 logs/
 
+# === GENERATED DESKTOP ASSETS ===
+# icon.ico is rebuilt by tools/install_desktop_shortcut.ps1 on each install
+tools/icon.ico
+
 # === BACKUPS ===
 *.bak
 *_backup*

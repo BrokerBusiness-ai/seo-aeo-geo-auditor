@@ -35,6 +35,15 @@ python gui.py --open
 # → opens http://127.0.0.1:8765 — paste URL, click button, get report
 ```
 
+### Windows desktop integration (one double-click)
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install_desktop_shortcut.ps1
+```
+
+That places a "SEO Auditor" shortcut on your Desktop. Double-click it any time
+to load API keys, start the GUI, and open the browser. See [`tools/README.md`](tools/README.md).
+
 CLI alternative:
 
 ```bash
