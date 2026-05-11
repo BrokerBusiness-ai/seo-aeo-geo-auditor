@@ -1,5 +1,5 @@
-# =============================================================================
-# start.ps1 — one-click launcher for seo-aeo-geo-auditor
+﻿# =============================================================================
+# start.ps1 - one-click launcher for seo-aeo-geo-auditor
 #
 # What it does (in order):
 #   1. Loads API keys from C:\PYTHON\token\Api_AI.txt (or .env if present)
@@ -19,7 +19,7 @@ Set-Location $AuditorRoot
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  SEO/AEO/GEO AUDITOR — local launcher" -ForegroundColor Cyan
+Write-Host "  SEO/AEO/GEO AUDITOR - local launcher" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -31,20 +31,80 @@ $KeyFiles = @(
     (Join-Path $AuditorRoot ".env")
 )
 
+# Fallback detection: if a bare value (no KEY=) appears, infer the variable
+# name from a well-known prefix. Order matters - first match wins.
+function Get-VarNameForValue {
+    param([string]$val)
+    switch -Regex ($val) {
+        '^sk-ant-api'      { return "ANTHROPIC_API_KEY" }
+        '^sk-proj-'        { return "OPENAI_API_KEY" }
+        '^xai-'            { return "XAI_API_KEY" }
+        '^pplx-'           { return "PERPLEXITY_API_KEY" }
+        '^hf_'             { return "HF_TOKEN" }
+        '^github_pat_'     { return "GITHUB_TOKEN" }
+        '^AIza[0-9A-Za-z_-]{30,}' {
+            # AIza... is the prefix for ALL Google API keys (Gemini, PSI, Maps).
+            # Disambiguate by looking at the previous label line if present.
+            return $null  # handled with context below
+        }
+        '^sk_live_'        { return "STRIPE_SECRET_KEY" }
+        '^pk_live_'        { return "STRIPE_PUBLISHABLE_KEY" }
+        '^whsec_'          { return "STRIPE_WEBHOOK_SECRET" }
+        # DeepSeek uses sk- without proj/ant prefix - hard to disambiguate from
+        # generic sk-... so we don't auto-detect those.
+    }
+    return $null
+}
+
 $loaded = 0
 foreach ($keyFile in $KeyFiles) {
     if (Test-Path $keyFile) {
         Write-Host "[+] Loading keys from: $keyFile" -ForegroundColor Green
-        Get-Content $keyFile | ForEach-Object {
-            $line = $_.Trim()
-            if ($line -and -not $line.StartsWith("#")) {
-                if ($line -match '^([A-Z][A-Z0-9_]*)\s*=\s*(.+)$') {
-                    $name = $Matches[1]
-                    $val = $Matches[2].Trim().Trim('"').Trim("'")
-                    [Environment]::SetEnvironmentVariable($name, $val, "Process")
-                    $loaded++
-                }
+        $lines = Get-Content $keyFile
+        $prevLabel = $null  # tracks the previous non-empty line for label-above-value format
+
+        foreach ($rawLine in $lines) {
+            $line = $rawLine.Trim()
+            if ([string]::IsNullOrEmpty($line) -or $line.StartsWith("#")) {
+                $prevLabel = $null
+                continue
             }
+
+            # Standard form: KEY=VALUE
+            if ($line -match '^([A-Z][A-Z0-9_]*)\s*=\s*(.+)$') {
+                $name = $Matches[1]
+                $val = $Matches[2].Trim().Trim('"').Trim("'")
+                [Environment]::SetEnvironmentVariable($name, $val, "Process")
+                $loaded++
+                $prevLabel = $null
+                continue
+            }
+
+            # Bare value: try to infer KEY by prefix
+            $inferred = Get-VarNameForValue $line
+            if ($inferred) {
+                [Environment]::SetEnvironmentVariable($inferred, $line.Trim().Trim('"').Trim("'"), "Process")
+                $loaded++
+                $prevLabel = $null
+                continue
+            }
+
+            # AIza... + previous label = disambiguate Gemini / PSI / GitHub label
+            if ($line -match '^AIza[0-9A-Za-z_-]{30,}$') {
+                $lbl = if ($prevLabel) { $prevLabel.ToLower() } else { "" }
+                $name = $null
+                if ($lbl -match "gemini")            { $name = "GEMINI_API_KEY" }
+                elseif ($lbl -match "psi|pagespeed") { $name = "PSI_API_KEY" }
+                elseif ($lbl -match "maps")          { $name = "GOOGLE_MAPS_API_KEY" }
+                else                                 { $name = "GEMINI_API_KEY" }  # default Google key bucket
+                [Environment]::SetEnvironmentVariable($name, $line.Trim(), "Process")
+                $loaded++
+                $prevLabel = $null
+                continue
+            }
+
+            # Otherwise treat as a label for the next bare value
+            $prevLabel = $line
         }
     }
 }
@@ -106,7 +166,7 @@ Write-Host "  Press Ctrl+C in this window to stop the server." -ForegroundColor 
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Run gui.py — --open automatically launches browser after 0.8s
+# Run gui.py - --open automatically launches browser after 0.8s
 python gui.py --open --port 8765
 
 # After gui.py exits (Ctrl+C), keep window for one keypress so user reads logs
